@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>カフェ予約</title>
+
+<style>
+/* ===== 基本設定 ===== */
+body {
+  font-family: "Yu Mincho", "Hiragino Mincho Pro", serif;
+  background: #fafafa;
+  color: #555;
+  margin: 0;
+}
+
+.container {
+  max-width: 420px;
+  margin: 20px auto;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  font-size: 22px;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 30px;
+}
+
+/* ===== カレンダー ===== */
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.calendar-header button {
+  border: 1px solid #e0c27a;
+  background: none;
+  color: #e0c27a;
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+
+.weekdays,
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+}
+
+.weekdays {
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.days {
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.day {
+  background: #fff;
+  border: 1px solid #eee;
+  padding: 10px 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.day.selected {
+  background: #e0c27a;
+  color: #fff;
+}
+
+/* ===== 時間帯 ===== */
+.time-slots {
+  display: none;
+  margin-top: 25px;
+}
+
+.time-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.time-buttons button {
+  border: 1px solid #e0c27a;
+  background: #fff;
+  padding: 10px;
+  border-radius: 6px;
+}
+
+.time-buttons button.selected {
+  background: #e0c27a;
+  color: #fff;
+}
+
+.time-buttons button:disabled {
+  opacity: 0.3;
+}
+
+/* ===== フォーム ===== */
+.form-group {
+  margin-top: 20px;
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+/* ===== ボタン ===== */
+.submit-btn {
+  margin-top: 30px;
+  width: 100%;
+  padding: 14px;
+  background: #d9aa2c;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 15px;
+}
+
+/* ===== 確認画面 ===== */
+#confirmScreen {
+  display: none;
+  max-width: 420px;
+  margin: 20px auto;
+  padding: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container" id="formScreen">
+  <h1>カフェ予約</h1>
+  <div class="subtitle">ご予約を承ります</div>
+
+  <!-- カレンダー -->
+  <div class="calendar-header">
+    <button id="prevMonth">←</button>
+    <div id="monthYear"></div>
+    <button id="nextMonth">→</button>
+  </div>
+
+  <div class="weekdays">
+    <div>日</div><div>月</div><div>火</div><div>水</div>
+    <div>木</div><div>金</div><div>土</div>
+  </div>
+
+  <div class="days" id="calendarDays"></div>
+
+  <!-- 時間 -->
+  <div class="time-slots" id="timeSlots">
+    <h3>希望時間</h3>
+    <div class="time-buttons">
+      <button>11:00</button>
+      <button>13:00</button>
+      <button>15:00</button>
+      <button>17:00</button>
+      <button>19:00</button>
+    </div>
+  </div>
+
+  <!-- 入力欄 -->
+  <div class="form-group">
+    <label>人数</label>
+    <select id="people">
+      <option value="">選択してください</option>
+      <option>1名</option>
+      <option>2名</option>
+      <option>3名</option>
+      <option>4名</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label>お名前</label>
+    <input type="text" id="name">
+  </div>
+
+  <div class="form-group">
+    <label>電話番号</label>
+    <input type="tel" id="phone">
+  </div>
+
+  <button class="submit-btn" id="confirmBtn">予約を確定する</button>
+</div>
+
+<!-- 確認画面 -->
+<div id="confirmScreen">
+  <h2>予約内容の確認</h2>
+  <p id="cDate"></p>
+  <p id="cTime"></p>
+  <p id="cPeople"></p>
+  <p id="cName"></p>
+  <p id="cPhone"></p>
+  <button class="submit-btn" id="finalBtn">この内容で予約する</button>
+</div>
+
+<script>
+const today = new Date();
+let currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+const maxMonth = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+
+let selectedDate = "";
+let selectedTime = "";
+
+let reservations = JSON.parse(localStorage.getItem("reservations")) || [];
+
+const calendarDays = document.getElementById("calendarDays");
+const monthYear = document.getElementById("monthYear");
+const timeSlots = document.getElementById("timeSlots");
+
+/* カレンダー描画 */
+function renderCalendar() {
+  calendarDays.innerHTML = "";
+  const y = currentMonth.getFullYear();
+  const m = currentMonth.getMonth();
+  monthYear.textContent = `${y}年 ${m + 1}月`;
+
+  const firstDay = new Date(y, m, 1).getDay();
+  const lastDate = new Date(y, m + 1, 0).getDate();
+
+  for (let i = 0; i < firstDay; i++) {
+    calendarDays.appendChild(document.createElement("div"));
+  }
+
+  for (let d = 1; d <= lastDate; d++) {
+    const div = document.createElement("div");
+    div.className = "day";
+    div.textContent = d;
+
+    const dateStr = `${y}-${m + 1}-${d}`;
+
+    div.onclick = () => {
+      document.querySelectorAll(".day").forEach(el => el.classList.remove("selected"));
+      div.classList.add("selected");
+      selectedDate = dateStr;
+      showTimes();
+    };
+
+    calendarDays.appendChild(div);
+  }
+}
+
+function showTimes() {
+  timeSlots.style.display = "block";
+  document.querySelectorAll(".time-buttons button").forEach(btn => {
+    btn.disabled = reservations.some(r => r.date === selectedDate && r.time === btn.textContent);
+    btn.onclick = () => {
+      if (btn.disabled) return;
+      document.querySelectorAll(".time-buttons button").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      selectedTime = btn.textContent;
+    };
+  });
+}
+
+/* 月移動 */
+prevMonth.onclick = () => {
+  if (currentMonth > today) {
+    currentMonth.setMonth(currentMonth.getMonth() - 1);
+    renderCalendar();
+  }
+};
+
+nextMonth.onclick = () => {
+  if (currentMonth < maxMonth) {
+    currentMonth.setMonth(currentMonth.getMonth() + 1);
+    renderCalendar();
+  }
+};
+
+/* 確認画面 */
+confirmBtn.onclick = () => {
+  if (!selectedDate || !selectedTime) {
+    alert("日付と時間を選択してください");
+    return;
+  }
+
+  cDate.textContent = "日付：" + selectedDate;
+  cTime.textContent = "時間：" + selectedTime;
+  cPeople.textContent = "人数：" + people.value;
+  cName.textContent = "名前：" + name.value;
+  cPhone.textContent = "電話：" + phone.value;
+
+  formScreen.style.display = "none";
+  confirmScreen.style.display = "block";
+};
+
+/* 最終確定 */
+finalBtn.onclick = () => {
+  reservations.push({ date: selectedDate, time: selectedTime });
+  localStorage.setItem("reservations", JSON.stringify(reservations));
+  alert("予約が完了しました！");
+  location.reload();
+};
+
+renderCalendar();
+</script>
+
+</body>
+</html>
+
