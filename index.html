@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>カフェ予約</title>
+
+<style>
+/* ===== 全体の基本設定 ===== */
+body {
+  font-family: "Yu Mincho", "Hiragino Mincho Pro", serif;
+  background: #fafafa;
+  color: #555;
+  margin: 0;
+}
+
+.container {
+  max-width: 420px;
+  margin: 30px auto;
+  padding: 20px;
+}
+
+/* ===== 見出し ===== */
+h1 {
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 13px;
+  margin-bottom: 30px;
+  color: #888;
+}
+
+/* ===== カレンダー ===== */
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.calendar-header button {
+  background: none;
+  border: 1px solid #e0c27a;
+  color: #e0c27a;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.calendar-header button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+#monthYear {
+  font-size: 14px;
+}
+
+/* 曜日 */
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  font-size: 12px;
+  text-align: center;
+  margin-bottom: 5px;
+}
+
+/* 日付 */
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.day {
+  padding: 10px 0;
+  text-align: center;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  background: #fff;
+}
+
+.day:hover {
+  background: #f5f1e8;
+}
+
+.day.selected {
+  background: #e0c27a;
+  color: #fff;
+}
+
+/* ===== 時間帯 ===== */
+.time-slots {
+  margin-top: 25px;
+  display: none;
+}
+
+.time-slots h3 {
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.time-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.time-buttons button {
+  padding: 10px 0;
+  border: 1px solid #e0c27a;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.time-buttons button.selected {
+  background: #e0c27a;
+  color: #fff;
+}
+
+/* ===== フォーム ===== */
+.form-group {
+  margin-top: 20px;
+}
+
+label {
+  font-size: 13px;
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+/* ===== 予約ボタン ===== */
+.submit-btn {
+  margin-top: 30px;
+  width: 100%;
+  background: #d9aa2c;
+  color: #fff;
+  border: none;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+/* ===== スマホ対応 ===== */
+@media (max-width: 480px) {
+  .container {
+    margin: 10px;
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>カフェ予約</h1>
+  <div class="subtitle">ご予約を承ります</div>
+
+  <!-- ===== カレンダー ===== -->
+  <div class="calendar-header">
+    <button id="prevMonth">←</button>
+    <div id="monthYear"></div>
+    <button id="nextMonth">→</button>
+  </div>
+
+  <div class="weekdays">
+    <div>日</div><div>月</div><div>火</div><div>水</div>
+    <div>木</div><div>金</div><div>土</div>
+  </div>
+
+  <div class="days" id="calendarDays"></div>
+
+  <!-- ===== 時間帯 ===== -->
+  <div class="time-slots" id="timeSlots">
+    <h3>希望時間</h3>
+    <div class="time-buttons">
+      <button>11:00</button>
+      <button>13:00</button>
+      <button>15:00</button>
+      <button>17:00</button>
+      <button>19:00</button>
+    </div>
+  </div>
+
+  <!-- ===== 入力フォーム ===== -->
+  <div class="form-group">
+    <label>ご予約人数</label>
+    <select>
+      <option>人数を選択してください</option>
+      <option>1名</option>
+      <option>2名</option>
+      <option>3名</option>
+      <option>4名</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label>お名前</label>
+    <input type="text" placeholder="山田 太郎">
+  </div>
+
+  <div class="form-group">
+    <label>お電話番号</label>
+    <input type="tel" placeholder="090-1234-5678">
+  </div>
+
+  <button class="submit-btn">予約を確定する</button>
+</div>
+
+<script>
+/* ===== カレンダーの処理 ===== */
+
+// 今日の日付
+const today = new Date();
+
+// 表示用の月（最初は今月）
+let currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+// 予約できる最終月（3ヶ月先）
+const maxMonth = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+
+const monthYear = document.getElementById("monthYear");
+const calendarDays = document.getElementById("calendarDays");
+const prevBtn = document.getElementById("prevMonth");
+const nextBtn = document.getElementById("nextMonth");
+const timeSlots = document.getElementById("timeSlots");
+
+// カレンダー描画
+function renderCalendar() {
+  calendarDays.innerHTML = "";
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+
+  monthYear.textContent = `${year}年 ${month + 1}月`;
+
+  // 前月・次月ボタン制御
+  prevBtn.disabled = currentMonth <= new Date(today.getFullYear(), today.getMonth(), 1);
+  nextBtn.disabled = currentMonth >= maxMonth;
+
+  // 月初の曜日
+  const firstDay = new Date(year, month, 1).getDay();
+  const lastDate = new Date(year, month + 1, 0).getDate();
+
+  // 空白
+  for (let i = 0; i < firstDay; i++) {
+    calendarDays.appendChild(document.createElement("div"));
+  }
+
+  // 日付生成
+  for (let d = 1; d <= lastDate; d++) {
+    const day = document.createElement("div");
+    day.textContent = d;
+    day.className = "day";
+
+    day.addEventListener("click", () => {
+      document.querySelectorAll(".day").forEach(el => el.classList.remove("selected"));
+      day.classList.add("selected");
+      timeSlots.style.display = "block";
+    });
+
+    calendarDays.appendChild(day);
+  }
+}
+
+// 月移動
+prevBtn.onclick = () => {
+  currentMonth.setMonth(currentMonth.getMonth() - 1);
+  renderCalendar();
+};
+
+nextBtn.onclick = () => {
+  currentMonth.setMonth(currentMonth.getMonth() + 1);
+  renderCalendar();
+};
+
+// 時間選択
+document.querySelectorAll(".time-buttons button").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".time-buttons button").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+  };
+});
+
+// 初期表示
+renderCalendar();
+</script>
+
+</body>
+</html>
